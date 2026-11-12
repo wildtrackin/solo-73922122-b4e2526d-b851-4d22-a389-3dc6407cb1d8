@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /srv
+
+COPY requirements-device.txt ./
+RUN pip install --no-cache-dir -r requirements-device.txt
+
+COPY device_sim ./device_sim
+
+RUN mkdir -p /data
+
+EXPOSE 8001
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=6s --retries=5 \
+    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/status', timeout=3).status==200 else 1)"
+
+CMD ["uvicorn", "device_sim.app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]

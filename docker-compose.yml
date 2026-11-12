@@ -1,0 +1,83 @@
+services:
+  keygen:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: ["python", "-m", "keygen.generate_keys"]
+    environment:
+      KEYS_DIR: /keys
+    volumes:
+      - keys:/keys
+    restart: "no"
+
+  device:
+    build:
+      context: .
+      dockerfile: Dockerfile.device
+    environment:
+      DEVICE_MODEL: gateway-gx100
+      DEVICE_DB_PATH: /data/device.db
+      DEVICE_FACTORY_VERSION: "1"
+    volumes:
+      - device-data:/data
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/status', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      keygen:
+        condition: service_completed_successfully
+      device:
+        condition: service_healthy
+    environment:
+      FW_DATABASE_PATH: /data/installer.db
+      FW_TRUSTED_PUBLIC_KEY_PATH: /keys/public.pem
+      FW_DEVICE_BASE_URL: http://device:8001
+      FW_DEVICE_MODEL: gateway-gx100
+      FW_DEVICE_TIMEOUT_SECONDS: "5"
+      FW_RECONCILE_INTERVAL_SECONDS: "3"
+    volumes:
+      - keys:/keys
+      - api-data:/data
+      - build:/build
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  demo:
+    profiles: ["demo"]
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      api:
+        condition: service_healthy
+      device:
+        condition: service_healthy
+    environment:
+      API_URL: http://api:8000
+      DEVICE_URL: http://device:8001
+      KEYS_DIR: /keys
+      FW_DEVICE_MODEL: gateway-gx100
+    volumes:
+      - keys:/keys
+    command: ["python", "demo/run_demo.py"]
+    restart: "no"
+
+volumes:
+  keys:
+  api-data:
+  device-data:
+  build:

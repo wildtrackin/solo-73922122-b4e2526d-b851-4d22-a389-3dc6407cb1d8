@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Local runtime data and demo artifacts
+/data/
+/keys/
+/build/
+*.db
+*.db-wal
+*.db-shm
+
+# Test / tooling
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Env
+.env
